@@ -122,4 +122,54 @@ uploaded_file = st.file_uploader("Upload Blood Smear Image (PNG, JPG, JPEG)", ty
 
 if uploaded_file is not None and model_loaded:
     image = Image.open(uploaded_file).convert("RGB")
-    st.image(image, caption="Uploaded
+    st.image(image, caption="Uploaded Cell Image", width=260)
+
+    if st.button("Analyze Cell Image", type="primary"):
+        input_shape = model.input_shape[1:3]
+        img_resized = image.resize(input_shape)
+        img_array = np.array(img_resized, dtype=np.float32) / 255.0
+        img_array = np.expand_dims(img_array, axis=0)
+
+        prediction = model.predict(img_array)
+
+        if prediction.shape[-1] == 1:
+            prob = float(prediction[0][0])
+            if prob < 0.5:
+                is_infected = True
+                label = "Parasitized (Malaria Detected)"
+                confidence = (1 - prob) * 100
+            else:
+                is_infected = False
+                label = "Uninfected (Normal)"
+                confidence = prob * 100
+        else:
+            class_idx = int(np.argmax(prediction[0]))
+            confidence = float(np.max(prediction[0])) * 100
+            is_infected = (class_idx == 0)
+            label = "Parasitized (Malaria Detected)" if is_infected else "Uninfected (Normal)"
+
+        med_info = get_medicine_info(is_infected)
+
+        st.markdown(f"""
+        <div class="report-card">
+            <h3>Result: {label}</h3>
+            <p><strong>Confidence:</strong> {confidence:.2f}%</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        med_list_html = "".join([f"<li>{m}</li>" for m in med_info["items"]])
+        st.markdown(f"""
+        <div class="med-card">
+            <h4>💊 {med_info['title']}</h4>
+            <ul>{med_list_html}</ul>
+            <p style="font-size: 0.9em; color: #c9d1d9;"><em>{med_info['note']}</em></p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        pdf_bytes = create_pdf(patient_name, patient_age, label, confidence, med_info)
+        st.download_button(
+            label="📄 Save / Download PDF Report",
+            data=pdf_bytes,
+            file_name=f"Malaria_Report_{patient_name or 'Patient'}.pdf",
+            mime="application/pdf"
+        )
