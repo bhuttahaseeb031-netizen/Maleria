@@ -4,7 +4,6 @@ from PIL import Image
 import tensorflow as tf
 from fpdf import FPDF
 from datetime import datetime
-import io
 
 # --- PAGE CONFIG ---
 st.set_page_config(page_title="Malaria Cell Detection", page_icon="🔬", layout="centered")
@@ -40,7 +39,6 @@ with col2:
 # --- LOAD MODEL ---
 @st.cache_resource
 def load_malaria_model():
-    # Apni model file ka exact naam yahan likhein (e.g., 'malaria_model.h5')
     return tf.keras.models.load_model("malaria_model.h5")
 
 try:
@@ -50,7 +48,7 @@ except Exception as e:
     model_loaded = False
     st.error(f"Model file load nahi ho saki: {e}. Check karein ke model file GitHub repo mein maujood hai aur uska naam sahi hai.")
 
-# --- PDF GENERATOR FUNCTION ---
+# --- PDF GENERATOR FUNCTION (FIXED FOR FPDF2) ---
 def create_pdf(name, age_id, diagnosis, confidence):
     pdf = FPDF()
     pdf.add_page()
@@ -72,7 +70,7 @@ def create_pdf(name, age_id, diagnosis, confidence):
 
     pdf.set_font("Arial", "I", 10)
     pdf.multi_cell(0, 8, "Disclaimer: This AI-generated report is for screening assistance only. Please consult a qualified pathologist or physician for clinical confirmation.")
-    return pdf.output(dest="S").encode("latin-1")
+    return bytes(pdf.output())
 
 # --- IMAGE UPLOAD & PREDICTION ---
 uploaded_file = st.file_uploader("Upload Blood Smear Image (PNG, JPG, JPEG)", type=["png", "jpg", "jpeg"])
@@ -82,7 +80,6 @@ if uploaded_file is not None and model_loaded:
     st.image(image, caption="Uploaded Cell Image", width=260)
 
     if st.button("Analyze Cell Image", type="primary"):
-        # Model ke input size ke mutabiq resize karein (aksar 64x64 ya 128x128 hota hai)
         input_shape = model.input_shape[1:3]
         img_resized = image.resize(input_shape)
         img_array = np.array(img_resized, dtype=np.float32) / 255.0
@@ -90,7 +87,6 @@ if uploaded_file is not None and model_loaded:
 
         prediction = model.predict(img_array)
 
-        # Binary (1 output) aur Categorical (2 outputs) dono handle karta hai
         if prediction.shape[-1] == 1:
             prob = float(prediction[0][0])
             if prob < 0.5:
