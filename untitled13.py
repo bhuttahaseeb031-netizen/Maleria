@@ -68,7 +68,7 @@ st.markdown("""
 
 
 def create_simple_pdf(title, patient_name, patient_gender, lines):
-    """Pure Python PDF generator (safe against copy-paste line breaks)."""
+    """Pure Python PDF generator with short lines."""
     nl = chr(10)
     p_name = patient_name.strip() if patient_name and patient_name.strip() else "Not Specified"
     p_gender = patient_gender if patient_gender else "Not Specified"
@@ -89,9 +89,9 @@ def create_simple_pdf(title, patient_name, patient_gender, lines):
         "Created by Haseeb Bhutta",
     ]
 
-    content_ops = ["BT", "/F1 11 Tf", "50 780 Td", "16 TL"]
+    ops = ["BT", "/F1 11 Tf", "50 780 Td", "16 TL"]
     for idx, line in enumerate(all_lines):
-        safe_line = (
+        clean = (
             str(line)
             .encode("ascii", errors="ignore")
             .decode("ascii")
@@ -99,43 +99,32 @@ def create_simple_pdf(title, patient_name, patient_gender, lines):
             .replace("(", "\\(") .replace(")", "\\)")
         )
         if idx == 0:
-            content_ops.append("/F2 15 Tf")
-            content_ops.append("(" + safe_line + ") Tj")
-            content_ops.append("/F1 11 Tf")
+            ops.extend(["/F2 15 Tf", "(" + clean + ") Tj", "/F1 11 Tf"])
         else:
-            content_ops.append("T*")
-            content_ops.append("(" + safe_line + ") Tj")
-    content_ops.append("ET")
-    stream_data = nl.join(content_ops).encode("ascii")
+            ops.extend(["T*", "(" + clean + ") Tj"])
+    ops.append("ET")
+    stream = nl.join(ops).encode("ascii")
 
-    obj1 = ("1 0 obj" + nl + "<< /Type /Catalog /Pages 2 0 R >>" + nl + "endobj" + nl).encode("ascii")
-    obj2 = ("2 0 obj" + nl + "<< /Type /Pages /Kids [3 0 R] /Count 1 >>" + nl + "endobj" + nl).encode("ascii")
-    obj3 = (
-        "3 0 obj" + nl
-        + "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 842] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>"
-        + nl + "endobj" + nl
-    ).encode("ascii")
-    obj4 = ("4 0 obj" + nl + "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>" + nl + "endobj" + nl).encode("ascii")
-    obj5 = ("5 0 obj" + nl + "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>" + nl + "endobj" + nl).encode("ascii")
-    obj6 = (
-        ("6 0 obj" + nl + "<< /Length " + str(len(stream_data)) + " >>" + nl + "stream" + nl).encode("ascii")
-        + stream_data
-        + (nl + "endstream" + nl + "endobj" + nl).encode("ascii")
-    )
+    o1 = ("1 0 obj" + nl + "<< /Type /Catalog /Pages 2 0 R >>" + nl + "endobj" + nl).encode("ascii")
+    o2 = ("2 0 obj" + nl + "<< /Type /Pages /Kids [3 0 R] /Count 1 >>" + nl + "endobj" + nl).encode("ascii")
+    o3_body = "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 842] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>"
+    o3 = ("3 0 obj" + nl + o3_body + nl + "endobj" + nl).encode("ascii")
+    o4 = ("4 0 obj" + nl + "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>" + nl + "endobj" + nl).encode("ascii")
+    o5 = ("5 0 obj" + nl + "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>" + nl + "endobj" + nl).encode("ascii")
+    o6 = ("6 0 obj" + nl + "<< /Length " + str(len(stream)) + " >>" + nl + "stream" + nl).encode("ascii") + stream + (nl + "endstream" + nl + "endobj" + nl).encode("ascii")
 
-    objects = [obj1, obj2, obj3, obj4, obj5, obj6]
-    pdf_bytes = bytearray(("%PDF-1.4" + nl).encode("ascii"))
-    offsets = [0]
-    for obj in objects:
-        offsets.append(len(pdf_bytes))
-        pdf_bytes.extend(obj)
+    objs = [o1, o2, o3, o4, o5, o6]
+    buf = bytearray(("%PDF-1.4" + nl).encode("ascii"))
+    offs = [0]
+    for obj in objs:
+        offs.append(len(buf))
+        buf.extend(obj)
 
-    xref_pos = len(pdf_bytes)
-    pdf_bytes.extend(("xref" + nl + "0 " + str(len(objects) + 1) + nl).encode("ascii"))
-    pdf_bytes.extend(("0000000000 65535 f " + nl).encode("ascii"))
-    for off in offsets[1:]:
-        pdf_bytes.extend((f"{off:010d} 00000 n " + nl).encode("ascii"))
+    xref = len(buf)
+    buf.extend(("xref" + nl + "0 7" + nl).encode("ascii"))
+    buf.extend(("0000000000 65535 f " + nl).encode("ascii"))
+    for off in offs[1:]:
+        buf.extend((str(off).zfill(10) + " 00000 n " + nl).encode("ascii"))
 
-    trailer = (
-        "trailer" + nl
-        + "<< /Size " + str(len(objects) + 1) + " /
+    t_dict = "<< /Size 7 /Root 1 0 R >>"
+    buf.extend(("trailer
