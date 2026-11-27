@@ -672,8 +672,6 @@ numpy
 pillow
 fpdf2
 Jaise hi aap dono files GitHub par push karenge, result ke neeche 📄 Save / Download PDF Report button aa jayega jis par click karke PDF save/download ki ja sakegi.
-
-is removekr do
 Aapki screen par from fpdf import FPDF ka ModuleNotFoundError is liye aa raha hai kyunki requirements.txt mein fpdf2 abhi update nahi hua hai.
 
 Agar aap requirements.txt ko chhere baghair is error ko khatam karna chahte hain aur saath hi PDF/Report download ka option bhi rakhna chahte hain, to neeche diya gaya code aapki untitled13.py file mein paste kar dein. Is mein from fpdf import FPDF hata diya gaya hai aur built-in Python se hi bina kisi extra library ke valid PDF file generate hoti hai.
