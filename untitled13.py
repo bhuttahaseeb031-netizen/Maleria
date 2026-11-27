@@ -9,7 +9,6 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- SHORT CSS LINES ---
 css = "".join([
     "<style>",
     ".stApp { background-color: #0b1120; color: #f8fafc; }",
@@ -48,7 +47,6 @@ st.markdown(css, unsafe_allow_html=True)
 
 
 def create_simple_pdf(title, patient_name, patient_gender, lines):
-    """Pure Python PDF generator with extra-short lines."""
     nl = chr(10)
     sep = "-" * 48
     p_name = patient_name.strip() if patient_name and patient_name.strip() else "Not Specified"
@@ -70,4 +68,43 @@ def create_simple_pdf(title, patient_name, patient_gender, lines):
         "Created by Haseeb Bhutta",
     ]
 
-    ops = ["BT", "/F1 10.5
+    ops = []
+    ops.append("BT")
+    ops.append("/F1 10.5 Tf")
+    ops.append("45 785 Td")
+    ops.append("15 TL")
+
+    for idx, line in enumerate(all_lines):
+        clean = (
+            str(line)
+            .encode("ascii", errors="ignore")
+            .decode("ascii")
+            .replace("\\", "\\\\")
+            .replace("(", "\\(") .replace(")", "\\)")
+        )
+        if idx == 0:
+            ops.append("/F2 14 Tf")
+            ops.append("(" + clean + ") Tj")
+            ops.append("/F1 10.5 Tf")
+        else:
+            ops.append("T*")
+            ops.append("(" + clean + ") Tj")
+    ops.append("ET")
+    stream = nl.join(ops).encode("ascii")
+
+    o1_str = "1 0 obj" + nl + "<< /Type /Catalog /Pages 2 0 R >>" + nl + "endobj" + nl
+    o2_str = "2 0 obj" + nl + "<< /Type /Pages /Kids [3 0 R] /Count 1 >>" + nl + "endobj" + nl
+
+    p1 = "<< /Type /Page /Parent 2 0 R "
+    p2 = "/MediaBox [0 0 612 842] "
+    p3 = "/Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> "
+    p4 = "/Contents 6 0 R >>"
+    o3_str = "3 0 obj" + nl + p1 + p2 + p3 + p4 + nl + "endobj" + nl
+
+    f1_a = "<< /Type /Font /Subtype /Type1 "
+    f1_b = "/BaseFont /Helvetica >>"
+    o4_str = "4 0 obj" + nl + f1_a + f1_b + nl + "endobj" + nl
+
+    f2_a = "<< /Type /Font /Subtype /Type1 "
+    f2_b = "/BaseFont /Helvetica-Bold >>"
+    o5_str = "5 0 obj" + nl + f2_a + f2_b + nl + "endobj" +
