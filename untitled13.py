@@ -9,7 +9,7 @@ st.set_page_config(
     layout="centered"
 )
 
-# --- NEW CYBER-MEDICAL TEAL & EMERALD DARK THEME ---
+# --- CYBER-MEDICAL TEAL & EMERALD DARK THEME ---
 st.markdown("""
     <style>
     .stApp {
@@ -70,7 +70,6 @@ st.markdown("""
         font-weight: 700;
         letter-spacing: 0.3px;
         width: 100%;
-        transition: 0.3s;
     }
     .stButton>button:hover {
         background: linear-gradient(90deg, #14b8a6, #34d399);
@@ -118,18 +117,46 @@ st.markdown("""
 
 
 def create_simple_pdf(title, patient_name, patient_gender, lines):
-    """Pure Python PDF generator immune to copy-paste line breaks."""
+    """Pure Python PDF generator with short lines (immune to line-wrap errors)."""
     nl = chr(10)
+    sep = "-" * 48
     p_name = patient_name.strip() if patient_name and patient_name.strip() else "Not Specified"
     p_gender = patient_gender if patient_gender else "Not Specified"
 
     all_lines = [
-        "MALARIA AI DIAGNOSTIC & CLINICAL REPORT",
+        "MALARIA AI DIAGNOSTIC REPORT",
         title,
-        "------------------------------------------------------------",
+        sep,
         "Patient Name: " + p_name,
         "Gender: " + p_gender,
         "Generated On: " + datetime.now().strftime("%Y-%m-%d %H:%M"),
-        "------------------------------------------------------------",
+        sep,
     ] + [str(k) + ": " + str(v) for k, v in lines] + [
-        "--------------------------------
+        sep,
+        "Disclaimer: Automated AI screening report for educational",
+        "purposes only. Consult a doctor before taking medicine.",
+        sep,
+        "Created by Haseeb Bhutta",
+    ]
+
+    ops = ["BT", "/F1 10.5 Tf", "45 785 Td", "15 TL"]
+    for idx, line in enumerate(all_lines):
+        clean = (
+            str(line)
+            .encode("ascii", errors="ignore")
+            .decode("ascii")
+            .replace("\\", "\\\\")
+            .replace("(", "\\(") .replace(")", "\\)")
+        )
+        if idx == 0:
+            ops.extend(["/F2 14 Tf", "(" + clean + ") Tj", "/F1 10.5 Tf"])
+        else:
+            ops.extend(["T*", "(" + clean + ") Tj"])
+    ops.append("ET")
+    stream = nl.join(ops).encode("ascii")
+
+    o1 = f"""1 0 obj{nl}<< /Type /Catalog /Pages 2 0 R >>{nl}endobj{nl}""".encode("ascii")
+    o2 = f"""2 0 obj{nl}<< /Type /Pages /Kids [3 0 R] /Count 1 >>{nl}endobj{nl}""".encode("ascii")
+    o3_a = "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 842] "
+    o3_b = "/Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>"
+    o3 = f"""3 0 obj{nl}{o3_a}{o3_b}{nl}endobj{nl}""".encode
