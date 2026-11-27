@@ -106,40 +106,4 @@ def show_report_card(header_title, rows, meds_text):
         '<div class="med-box"><strong>💊 Suggested Medicines (Reference):</strong><br/>' + meds_text + '</div>'
         '</div>'
     )
-    st.markdown(html, unsafe_allow_html=True)
-
-
-st.markdown(
-    '<div class="hero-banner"><h1>🧬 AI Malaria Detection & Medicine System</h1>'
-    '<p>Patient Info • Blood Cell Detector • Symptoms & Medicines • Full Report & PDF Download</p></div>',
-    unsafe_allow_html=True,
-)
-
-c_p1, c_p2 = st.columns([2, 1])
-with c_p1:
-    patient_name = st.text_input("👤 Patient Name", placeholder="Patient ka naam likhein...")
-with c_p2:
-    patient_gender = st.selectbox("⚧ Gender", ["Male", "Female", "Other"])
-
-st.divider()
-left_col, right_col = st.columns(2, gap="large")
-
-with left_col:
-    st.markdown('<div class="section-title">🩸 1. Blood Cell Image Detector</div>', unsafe_allow_html=True)
-    up_file = st.file_uploader("Blood Smear Image Upload Karein (JPG, PNG, JPEG)", type=["jpg", "png", "jpeg"])
-
-    if up_file is not None:
-        img = Image.open(up_file).convert("RGB")
-        st.image(img, caption="Uploaded Blood Cell Image", width=220)
-        if st.button("Analyze Blood Cell Image", key="btn_img"):
-            arr = np.asarray(img.resize((128, 128)), dtype=np.float32) / 255.0
-            r_c, g_c, b_c = arr[:, :, 0], arr[:, :, 1], arr[:, :, 2]
-            mask = (b_c > g_c * 0.92) & ((r_c + g_c + b_c) / 3.0 < 0.52)
-            ratio = float(np.mean(mask))
-            pos = ratio > 0.08
-            conf = min(98.5, max(72.0, round(75.0 + abs(ratio - 0.08) * 180, 1)))
-            st.session_state["img_data"] = {
-                "dt": datetime.now().strftime("%Y-%m-%d %H:%M"),
-                "fn": up_file.name,
-                "st": "Parasitized (Malaria Detected)" if pos else "Uninfected (Normal Cell)",
-                "cf
+    st.markdown(html, unsafe_allow_html=
