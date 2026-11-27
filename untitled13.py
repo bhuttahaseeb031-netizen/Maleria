@@ -59,16 +59,16 @@ st.markdown("""
 
 
 def create_simple_pdf(title, patient_name, lines):
-    """Pure Python PDF generator (no fpdf or external library needed)."""
+    """Pure Python PDF generator (no external library needed)."""
     p_name = patient_name.strip() if patient_name and patient_name.strip() else "Not Specified"
     all_lines = [
         "MALARIA AI DIAGNOSTIC REPORT",
         title,
         "------------------------------------------------------------",
-        f"Patient Name: {p_name}",
-        f"Generated On: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+        "Patient Name: " + p_name,
+        "Generated On: " + datetime.now().strftime("%Y-%m-%d %H:%M"),
         "------------------------------------------------------------",
-    ] + [f"{k}: {v}" for k, v in lines] + [
+    ] + [str(k) + ": " + str(v) for k, v in lines] + [
         "------------------------------------------------------------",
         "Disclaimer: Automated AI screening report for educational",
         "and preliminary screening purposes only. Consult a doctor.",
@@ -81,32 +81,34 @@ def create_simple_pdf(title, patient_name, lines):
             .encode("ascii", errors="ignore")
             .decode("ascii")
             .replace("\\", "\\\\")
-            .replace("(", "\\(") .replace(")", "\\)")
+            .replace("(", "\\(")
+            .replace(")", "\\)")
         )
         if idx == 0:
             content_ops.append("/F2 15 Tf")
-            content_ops.append(f"({safe_line}) Tj")
+            content_ops.append("(" + safe_line + ") Tj")
             content_ops.append("/F1 11 Tf")
         else:
             content_ops.append("T*")
-            content_ops.append(f"({safe_line}) Tj")
+            content_ops.append("(" + safe_line + ") Tj")
     content_ops.append("ET")
     stream_data = "\n".join(content_ops).encode("ascii")
 
-    objects = []
-    objects.append(b"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n")
-    objects.append(b"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n")
-    objects.append(
-        b"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 842] "
-        b"/Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>\nendobj\n"
-    )
-    objects.append(b"4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n")
-    objects.append(b"5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>\nendobj\n")
-    objects.append(
-        f"6 0 obj\n<< /Length {len(stream_data)} >>\nstream\n".encode("ascii")
-        + stream_data
-        + b"\nendstream\nendobj\n"
-    )
+    objects = [
+        b"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n",
+        b"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n",
+        (
+            b"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 842] "
+            b"/Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>\nendobj\n"
+        ),
+        b"4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n",
+        b"5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>\nendobj\n",
+        (
+            f"6 0 obj\n<< /Length {len(stream_data)} >>\nstream\n".encode("ascii")
+            + stream_data
+            + b"\nendstream\nendobj\n"
+        ),
+    ]
 
     pdf_bytes = bytearray(b"%PDF-1.4\n")
     offsets = [0]
@@ -154,7 +156,7 @@ with tab1:
             st.session_state["img_report"] = {
                 "filename": uploaded_file.name,
                 "status": "Parasitized (Malaria Signs Detected)" if parasitized else "Uninfected (Normal Cell Appearance)",
-                "confidence": f"{confidence}%",
+                "confidence": str(confidence) + "%",
                 "spot_ratio": f"{spot_ratio:.2%}",
                 "note": (
                     "Dark staining spots threshold se zyada hain. Lab blood smear / RDT test karwayein."
@@ -168,13 +170,13 @@ with tab1:
         rep = st.session_state["img_report"]
         st.markdown('<div class="result-box">', unsafe_allow_html=True)
         if patient_name:
-            st.write(f"**Patient:** {patient_name}")
+            st.write("**Patient:** " + patient_name)
         if rep["is_parasitized"]:
-            st.error(f"⚠️ **{rep['status']}** — Confidence: {rep['confidence']}")
+            st.error("⚠️ **" + rep["status"] + "** — Confidence: " + rep["confidence"])
         else:
-            st.success(f"✅ **{rep['status']}** — Confidence: {rep['confidence']}")
-        st.write(f"**Image File:** {rep['filename']}")
-        st.write(f"**Dark Staining Spot Ratio:** {rep['spot_ratio']}")
+            st.success("✅ **" + rep["status"] + "** — Confidence: " + rep["confidence"])
+        st.write("**Image File:** " + rep["filename"])
+        st.write("**Dark Staining Spot Ratio:** " + rep["spot_ratio"])
         st.write(rep["note"])
         st.markdown('</div>', unsafe_allow_html=True)
 
@@ -192,7 +194,7 @@ with tab1:
         st.download_button(
             label="📄 Save / Download PDF Report",
             data=pdf_bytes,
-            file_name=f"malaria_image_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+            file_name="malaria_image_report_" + datetime.now().strftime("%Y%m%d_%H%M%S") + ".pdf",
             mime="application/pdf",
             key="dl_img_pdf",
         )
@@ -240,4 +242,46 @@ with tab2:
             advice = "Symptoms se malaria ka strong indication nahi mil raha."
 
         st.session_state["sym_report"] = {
-            "temp": f"{temp}
+            "temp": str(round(temp, 1)) + " F",
+            "score": str(score) + "/9",
+            "risk_label": risk_label,
+            "risk_level": risk_level,
+            "advice": advice,
+            "symptoms_summary": (
+                "Fever: " + fever + ", Chills: " + chills + ", Sweating: " + sweating +
+                ", Headache: " + headache + ", Nausea/Weakness: " + nausea
+            ),
+        }
+
+    if "sym_report" in st.session_state:
+        srep = st.session_state["sym_report"]
+        st.markdown('<div class="result-box">', unsafe_allow_html=True)
+        if patient_name:
+            st.write("**Patient:** " + patient_name)
+        if srep["risk_level"] == "high":
+            st.error("🚨 **" + srep["risk_label"] + "** (Symptom Score: " + srep["score"] + ")")
+        elif srep["risk_level"] == "mod":
+            st.warning("⚠️ **" + srep["risk_label"] + "** (Symptom Score: " + srep["score"] + ")")
+        else:
+            st.success("✅ **" + srep["risk_label"] + "** (Symptom Score: " + srep["score"] + ")")
+        st.write("**Temperature:** " + srep["temp"] + " | **Symptoms:** " + srep["symptoms_summary"])
+        st.write(srep["advice"])
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        sym_pdf_bytes = create_simple_pdf(
+            title="Symptoms-Based Malaria Screening Report",
+            patient_name=patient_name,
+            lines=[
+                ("Risk Assessment", srep["risk_label"] + " (Score: " + srep["score"] + ")"),
+                ("Body Temperature", srep["temp"]),
+                ("Reported Symptoms", srep["symptoms_summary"]),
+                ("Recommendation", srep["advice"]),
+            ],
+        )
+        st.download_button(
+            label="📄 Save / Download PDF Report",
+            data=sym_pdf_bytes,
+            file_name="malaria_symptoms_report_" + datetime.now().strftime("%Y%m%d_%H%M%S") + ".pdf",
+            mime="application/pdf",
+            key="dl_sym_pdf",
+        )
