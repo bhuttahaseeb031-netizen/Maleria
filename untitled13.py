@@ -3,11 +3,7 @@ import numpy as np
 from PIL import Image
 from datetime import datetime
 
-st.set_page_config(
-    page_title="Malaria AI Detector",
-    page_icon="🧬",
-    layout="wide"
-)
+st.set_page_config(page_title="Malaria AI Detector", page_icon="🧬", layout="wide")
 
 css = "".join([
     "<style>",
@@ -51,170 +47,99 @@ def make_obj(num, body):
     return (str(num) + " 0 obj" + nl + body + nl + "endobj" + nl).encode("ascii")
 
 
-def create_simple_pdf(title, patient_name, patient_gender, lines):
+def create_pdf(title, p_name, p_gender, lines):
     nl = chr(10)
-    sep = "-" * 48
-    p_name = patient_name.strip() if patient_name and patient_name.strip() else "Not Specified"
-    p_gender = patient_gender if patient_gender else "Not Specified"
-
+    sep = "-" * 45
+    name_val = p_name.strip() if p_name and p_name.strip() else "Not Specified"
     all_lines = [
         "MALARIA AI DIAGNOSTIC REPORT",
         title,
         sep,
-        "Patient Name: " + p_name,
-        "Gender: " + p_gender,
-        "Generated On: " + datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "Patient Name: " + name_val,
+        "Gender: " + str(p_gender),
+        "Date: " + datetime.now().strftime("%Y-%m-%d %H:%M"),
         sep,
     ] + [str(k) + ": " + str(v) for k, v in lines] + [
         sep,
-        "Disclaimer: Automated AI screening report for",
-        "educational purposes only. Consult a doctor.",
-        sep,
+        "Disclaimer: Consult a doctor before medicine.",
         "Created by Haseeb Bhutta",
     ]
-
     ops = ["BT", "/F1 10.5 Tf", "45 785 Td", "15 TL"]
     for idx, line in enumerate(all_lines):
-        clean = (
-            str(line)
-            .encode("ascii", errors="ignore")
-            .decode("ascii")
-            .replace("\\", "\\\\")
-            .replace("(", "\\(") .replace(")", "\\)")
-        )
+        clean = str(line).encode("ascii", "ignore").decode("ascii")
+        clean = clean.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
         if idx == 0:
             ops.extend(["/F2 14 Tf", "(" + clean + ") Tj", "/F1 10.5 Tf"])
         else:
             ops.extend(["T*", "(" + clean + ") Tj"])
     ops.append("ET")
     stream = nl.join(ops).encode("ascii")
-
-    page_dict = (
-        "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 842] "
-        "/Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>"
-    )
-    o6_head = ("6 0 obj" + nl + "<< /Length " + str(len(stream)) + " >>" + nl + "stream" + nl).encode("ascii")
-    o6_tail = (nl + "endstream" + nl + "endobj" + nl).encode("ascii")
-
+    p_dict = "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 842] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>"
+    o6 = ("6 0 obj" + nl + "<< /Length " + str(len(stream)) + " >>" + nl + "stream" + nl).encode("ascii") + stream + (nl + "endstream" + nl + "endobj" + nl).encode("ascii")
     objs = [
         make_obj(1, "<< /Type /Catalog /Pages 2 0 R >>"),
         make_obj(2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>"),
-        make_obj(3, page_dict),
+        make_obj(3, p_dict),
         make_obj(4, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"),
         make_obj(5, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>"),
-        o6_head + stream + o6_tail,
+        o6,
     ]
-
     buf = bytearray(("%PDF-1.4" + nl).encode("ascii"))
     offs = [0]
-    for obj in objs:
+    for o in objs:
         offs.append(len(buf))
-        buf.extend(obj)
-
+        buf.extend(o)
     xref = len(buf)
     buf.extend(("xref" + nl + "0 7" + nl + "0000000000 65535 f " + nl).encode("ascii"))
     for off in offs[1:]:
         buf.extend((str(off).zfill(10) + " 00000 n " + nl).encode("ascii"))
-
-    footer = "trailer" + nl + "<< /Size 7 /Root 1 0 R >>" + nl + "startxref" + nl + str(xref) + nl + "%%EOF"
-    buf.extend(footer.encode("ascii"))
+    buf.extend(("trailer" + nl + "<< /Size 7 /Root 1 0 R >>" + nl + "startxref" + nl + str(xref) + nl + "%%EOF").encode("ascii"))
     return bytes(buf)
 
 
-hero_html = (
-    '<div class="hero-banner">'
-    '<h1>🧬 AI Malaria Detection & Medicine System</h1>'
-    '<p>Patient Info • Blood Cell Detector • Symptoms & Medicines • Full Report & PDF Download</p>'
-    '</div>'
-)
-st.markdown(hero_html, unsafe_allow_html=True)
+def show_report_card(header_title, rows, meds_text):
+    tr_list = ['<tr><td class="report-label">' + k + '</td><td>' + v + '</td></tr>' for k, v in rows]
+    html = (
+        '<div class="report-sheet">'
+        '<div class="report-header">' + header_title + '</div>'
+        '<table class="report-table">' + "".join(tr_list) + '</table>'
+        '<div class="med-box"><strong>💊 Suggested Medicines (Reference):</strong><br/>' + meds_text + '</div>'
+        '</div>'
+    )
+    st.markdown(html, unsafe_allow_html=True)
 
-col_p1, col_p2 = st.columns([2, 1])
-with col_p1:
+
+st.markdown(
+    '<div class="hero-banner"><h1>🧬 AI Malaria Detection & Medicine System</h1>'
+    '<p>Patient Info • Blood Cell Detector • Symptoms & Medicines • Full Report & PDF Download</p></div>',
+    unsafe_allow_html=True,
+)
+
+c_p1, c_p2 = st.columns([2, 1])
+with c_p1:
     patient_name = st.text_input("👤 Patient Name", placeholder="Patient ka naam likhein...")
-with col_p2:
+with c_p2:
     patient_gender = st.selectbox("⚧ Gender", ["Male", "Female", "Other"])
 
 st.divider()
-
 left_col, right_col = st.columns(2, gap="large")
 
 with left_col:
     st.markdown('<div class="section-title">🩸 1. Blood Cell Image Detector</div>', unsafe_allow_html=True)
-    uploaded_file = st.file_uploader("Blood Smear Image Upload Karein (JPG, PNG, JPEG)", type=["jpg", "png", "jpeg"])
+    up_file = st.file_uploader("Blood Smear Image Upload Karein (JPG, PNG, JPEG)", type=["jpg", "png", "jpeg"])
 
-    if uploaded_file is not None:
-        img = Image.open(uploaded_file).convert("RGB")
+    if up_file is not None:
+        img = Image.open(up_file).convert("RGB")
         st.image(img, caption="Uploaded Blood Cell Image", width=220)
-
-        if st.button("Analyze Blood Cell Image", key="img_detect_btn"):
+        if st.button("Analyze Blood Cell Image", key="btn_img"):
             arr = np.asarray(img.resize((128, 128)), dtype=np.float32) / 255.0
-            red_ch, green_ch, blue_ch = arr[:, :, 0], arr[:, :, 1], arr[:, :, 2]
-            dark_purple_mask = (blue_ch > green_ch * 0.92) & ((red_ch + green_ch + blue_ch) / 3.0 < 0.52)
-            spot_ratio = float(np.mean(dark_purple_mask))
-
-            parasitized = spot_ratio > 0.08
-            confidence = min(98.5, max(72.0, round(75.0 + abs(spot_ratio - 0.08) * 180, 1)))
-
-            if parasitized:
-                med_info = "Artemether-Lumefantrine (Coartem), Chloroquine, Primaquine + Paracetamol (Fever)"
-                note_txt = "Malaria parasite ke asaar paye gaye hain. Lab MP/RDT test aur doctor se foran ruju karein."
-            else:
-                med_info = "No anti-malarial medicine required (Cell normal hai)"
-                note_txt = "Blood cell clear hai, parasite pattern nahi mila."
-
-            st.session_state["img_report"] = {
-                "time": datetime.now().strftime("%Y-%m-%d %H:%M"),
-                "filename": uploaded_file.name,
-                "status": "Parasitized (Malaria Detected)" if parasitized else "Uninfected (Normal Cell)",
-                "confidence": str(confidence) + "%",
-                "spot_ratio": f"{spot_ratio:.2%}",
-                "note": note_txt,
-                "medicines": med_info,
-                "is_parasitized": parasitized,
-            }
-
-    if "img_report" in st.session_state and isinstance(st.session_state["img_report"], dict):
-        rep = st.session_state["img_report"]
-        display_name = patient_name.strip() if patient_name.strip() else "Not Specified"
-        r_time = rep.get("time", datetime.now().strftime("%Y-%m-%d %H:%M"))
-        r_file = rep.get("filename", "Uploaded Image")
-        r_status = rep.get("status", "Uninfected (Normal Cell)")
-        r_conf = rep.get("confidence", "85.0%")
-        r_spot = rep.get("spot_ratio", "0.00%")
-        r_note = rep.get("note", "Screening complete.")
-        r_meds = rep.get("medicines", "Consult a doctor for medical advice.")
-        r_para = rep.get("is_parasitized", False)
-
-        if r_para:
-            st.error("⚠️ **" + r_status + "** (" + r_conf + ")")
-        else:
-            st.success("✅ **" + r_status + "** (" + r_conf + ")")
-
-        report_html = (
-            '<div class="report-sheet">'
-            '<div class="report-header">📋 BLOOD SMEAR DIAGNOSTIC REPORT</div>'
-            '<table class="report-table">'
-            '<tr><td class="report-label">Patient Name:</td><td>' + display_name + '</td></tr>'
-            '<tr><td class="report-label">Gender:</td><td>' + patient_gender + '</td></tr>'
-            '<tr><td class="report-label">Date & Time:</td><td>' + r_time + '</td></tr>'
-            '<tr><td class="report-label">Sample File:</td><td>' + r_file + '</td></tr>'
-            '<tr><td class="report-label">Result:</td><td><strong>' + r_status + '</strong></td></tr>'
-            '<tr><td class="report-label">Confidence:</td><td>' + r_conf + '</td></tr>'
-            '<tr><td class="report-label">Dark Spot Ratio:</td><td>' + r_spot + '</td></tr>'
-            '<tr><td class="report-label">Clinical Note:</td><td>' + r_note + '</td></tr>'
-            '</table>'
-            '<div class="med-box"><strong>💊 Suggested Medicines (Reference):</strong><br/>' + r_meds + '</div>'
-            '</div>'
-        )
-        st.markdown(report_html, unsafe_allow_html=True)
-
-        pdf_bytes = create_simple_pdf(
-            title="Blood Cell Image Screening Report",
-            patient_name=patient_name,
-            patient_gender=patient_gender,
-            lines=[
-                ("Image File", r_file),
-                ("Screening Result", r_status),
-                ("Confidence Score", r_conf),
-                ("Dark Spot Ratio", r
+            r_c, g_c, b_c = arr[:, :, 0], arr[:, :, 1], arr[:, :, 2]
+            mask = (b_c > g_c * 0.92) & ((r_c + g_c + b_c) / 3.0 < 0.52)
+            ratio = float(np.mean(mask))
+            pos = ratio > 0.08
+            conf = min(98.5, max(72.0, round(75.0 + abs(ratio - 0.08) * 180, 1)))
+            st.session_state["img_data"] = {
+                "dt": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                "fn": up_file.name,
+                "st": "Parasitized (Malaria Detected)" if pos else "Uninfected (Normal Cell)",
+                "cf
