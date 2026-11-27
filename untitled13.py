@@ -54,24 +54,38 @@ st.markdown("""
     .stDownloadButton>button:hover {
         background-color: #388bfd;
     }
+    .footer-credit {
+        text-align: center;
+        margin-top: 35px;
+        padding-top: 15px;
+        border-top: 1px solid #30363d;
+        color: #8b949e;
+        font-size: 15px;
+        font-weight: 600;
+    }
     </style>
 """, unsafe_allow_html=True)
 
 
-def create_simple_pdf(title, patient_name, lines):
+def create_simple_pdf(title, patient_name, patient_gender, lines):
     """Pure Python PDF generator (no external library needed)."""
     p_name = patient_name.strip() if patient_name and patient_name.strip() else "Not Specified"
+    p_gender = patient_gender if patient_gender else "Not Specified"
+
     all_lines = [
         "MALARIA AI DIAGNOSTIC REPORT",
         title,
         "------------------------------------------------------------",
         "Patient Name: " + p_name,
+        "Gender: " + p_gender,
         "Generated On: " + datetime.now().strftime("%Y-%m-%d %H:%M"),
         "------------------------------------------------------------",
     ] + [str(k) + ": " + str(v) for k, v in lines] + [
         "------------------------------------------------------------",
         "Disclaimer: Automated AI screening report for educational",
         "and preliminary screening purposes only. Consult a doctor.",
+        "------------------------------------------------------------",
+        "Created by Haseeb Bhutta",
     ]
 
     content_ops = ["BT", "/F1 11 Tf", "50 780 Td", "16 TL"]
@@ -81,8 +95,7 @@ def create_simple_pdf(title, patient_name, lines):
             .encode("ascii", errors="ignore")
             .decode("ascii")
             .replace("\\", "\\\\")
-            .replace("(", "\\(")
-            .replace(")", "\\)")
+            .replace("(", "\\(") .replace(")", "\\)")
         )
         if idx == 0:
             content_ops.append("/F2 15 Tf")
@@ -118,170 +131,4 @@ def create_simple_pdf(title, patient_name, lines):
 
     xref_pos = len(pdf_bytes)
     pdf_bytes.extend(f"xref\n0 {len(objects) + 1}\n".encode("ascii"))
-    pdf_bytes.extend(b"0000000000 65535 f \n")
-    for off in offsets[1:]:
-        pdf_bytes.extend(f"{off:010d} 00000 n \n".encode("ascii"))
-
-    pdf_bytes.extend(
-        f"trailer\n<< /Size {len(objects) + 1} /Root 1 0 R >>\nstartxref\n{xref_pos}\n%%EOF".encode("ascii")
-    )
-    return bytes(pdf_bytes)
-
-
-st.title("🔬 Malaria Detector App")
-st.caption("Code-based detector with instant PDF report download.")
-
-patient_name = st.text_input("Patient Name (Optional)", placeholder="Patient ka naam likhein...")
-
-tab1, tab2 = st.tabs(["🩸 Blood Cell Image Detector", "🩺 Symptoms Detector"])
-
-# --- TAB 1: IMAGE ANALYZER ---
-with tab1:
-    st.subheader("Blood Smear Image Upload Karein")
-    uploaded_file = st.file_uploader("Image chunein (JPG, PNG, JPEG)", type=["jpg", "png", "jpeg"])
-
-    if uploaded_file is not None:
-        img = Image.open(uploaded_file).convert("RGB")
-        st.image(img, caption="Uploaded Blood Cell Image", width=260)
-
-        if st.button("Detect Malaria from Image", key="img_detect_btn"):
-            arr = np.asarray(img.resize((128, 128)), dtype=np.float32) / 255.0
-            red_ch, green_ch, blue_ch = arr[:, :, 0], arr[:, :, 1], arr[:, :, 2]
-            dark_purple_mask = (blue_ch > green_ch * 0.92) & ((red_ch + green_ch + blue_ch) / 3.0 < 0.52)
-            spot_ratio = float(np.mean(dark_purple_mask))
-
-            parasitized = spot_ratio > 0.08
-            confidence = min(98.5, max(72.0, round(75.0 + abs(spot_ratio - 0.08) * 180, 1)))
-
-            st.session_state["img_report"] = {
-                "filename": uploaded_file.name,
-                "status": "Parasitized (Malaria Signs Detected)" if parasitized else "Uninfected (Normal Cell Appearance)",
-                "confidence": str(confidence) + "%",
-                "spot_ratio": f"{spot_ratio:.2%}",
-                "note": (
-                    "Dark staining spots threshold se zyada hain. Lab blood smear / RDT test karwayein."
-                    if parasitized
-                    else "Cell mein clear parasite pattern nahi mila."
-                ),
-                "is_parasitized": parasitized,
-            }
-
-    if "img_report" in st.session_state:
-        rep = st.session_state["img_report"]
-        st.markdown('<div class="result-box">', unsafe_allow_html=True)
-        if patient_name:
-            st.write("**Patient:** " + patient_name)
-        if rep["is_parasitized"]:
-            st.error("⚠️ **" + rep["status"] + "** — Confidence: " + rep["confidence"])
-        else:
-            st.success("✅ **" + rep["status"] + "** — Confidence: " + rep["confidence"])
-        st.write("**Image File:** " + rep["filename"])
-        st.write("**Dark Staining Spot Ratio:** " + rep["spot_ratio"])
-        st.write(rep["note"])
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        pdf_bytes = create_simple_pdf(
-            title="Blood Cell Image Screening Report",
-            patient_name=patient_name,
-            lines=[
-                ("Image File", rep["filename"]),
-                ("Screening Result", rep["status"]),
-                ("Confidence Score", rep["confidence"]),
-                ("Dark Spot Ratio", rep["spot_ratio"]),
-                ("Clinical Note", rep["note"]),
-            ],
-        )
-        st.download_button(
-            label="📄 Save / Download PDF Report",
-            data=pdf_bytes,
-            file_name="malaria_image_report_" + datetime.now().strftime("%Y%m%d_%H%M%S") + ".pdf",
-            mime="application/pdf",
-            key="dl_img_pdf",
-        )
-
-# --- TAB 2: SYMPTOMS DETECTOR ---
-with tab2:
-    st.subheader("Symptoms Select Karein")
-
-    c1, c2 = st.columns(2)
-    with c1:
-        temp = st.number_input("Temperature (°F)", min_value=95.0, max_value=107.0, value=98.6, step=0.1)
-        chills = st.selectbox("Chills / Kapkapi (Sardi lagna)?", ["No", "Yes"])
-        sweating = st.selectbox("Zyada Paseena Aana?", ["No", "Yes"])
-    with c2:
-        fever = st.selectbox("Tez Bukhar (High Fever)?", ["No", "Yes"])
-        headache = st.selectbox("Sar Dard / Body Ache?", ["No", "Yes"])
-        nausea = st.selectbox("Matli / Ulti / Kamzori?", ["No", "Yes"])
-
-    if st.button("Detect Malaria from Symptoms", key="sym_detect_btn"):
-        score = 0
-        if temp >= 100.4:
-            score += 2
-        if fever == "Yes":
-            score += 2
-        if chills == "Yes":
-            score += 2
-        if sweating == "Yes":
-            score += 1
-        if headache == "Yes":
-            score += 1
-        if nausea == "Yes":
-            score += 1
-
-        if score >= 6:
-            risk_label = "High Malaria Likelihood"
-            risk_level = "high"
-            advice = "Tez bukhar aur chills/sweating mojood hain. Foran doctor aur lab test (MP/RDT) karwayein."
-        elif score >= 3:
-            risk_label = "Moderate Risk"
-            risk_level = "mod"
-            advice = "Kuch symptoms milte julte hain. Doctor se checkup karwana behtar hai."
-        else:
-            risk_label = "Low Risk"
-            risk_level = "low"
-            advice = "Symptoms se malaria ka strong indication nahi mil raha."
-
-        st.session_state["sym_report"] = {
-            "temp": str(round(temp, 1)) + " F",
-            "score": str(score) + "/9",
-            "risk_label": risk_label,
-            "risk_level": risk_level,
-            "advice": advice,
-            "symptoms_summary": (
-                "Fever: " + fever + ", Chills: " + chills + ", Sweating: " + sweating +
-                ", Headache: " + headache + ", Nausea/Weakness: " + nausea
-            ),
-        }
-
-    if "sym_report" in st.session_state:
-        srep = st.session_state["sym_report"]
-        st.markdown('<div class="result-box">', unsafe_allow_html=True)
-        if patient_name:
-            st.write("**Patient:** " + patient_name)
-        if srep["risk_level"] == "high":
-            st.error("🚨 **" + srep["risk_label"] + "** (Symptom Score: " + srep["score"] + ")")
-        elif srep["risk_level"] == "mod":
-            st.warning("⚠️ **" + srep["risk_label"] + "** (Symptom Score: " + srep["score"] + ")")
-        else:
-            st.success("✅ **" + srep["risk_label"] + "** (Symptom Score: " + srep["score"] + ")")
-        st.write("**Temperature:** " + srep["temp"] + " | **Symptoms:** " + srep["symptoms_summary"])
-        st.write(srep["advice"])
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        sym_pdf_bytes = create_simple_pdf(
-            title="Symptoms-Based Malaria Screening Report",
-            patient_name=patient_name,
-            lines=[
-                ("Risk Assessment", srep["risk_label"] + " (Score: " + srep["score"] + ")"),
-                ("Body Temperature", srep["temp"]),
-                ("Reported Symptoms", srep["symptoms_summary"]),
-                ("Recommendation", srep["advice"]),
-            ],
-        )
-        st.download_button(
-            label="📄 Save / Download PDF Report",
-            data=sym_pdf_bytes,
-            file_name="malaria_symptoms_report_" + datetime.now().strftime("%Y%m%d_%H%M%S") + ".pdf",
-            mime="application/pdf",
-            key="dl_sym_pdf",
-        )
+    pdf_bytes.extend(b"0000000000 65535 f \n
