@@ -12,51 +12,91 @@ st.set_page_config(
     layout="wide",
 )
 
-# Dark Mode Styling
+# High-Contrast Dark Theme CSS (Text always clearly visible)
 st.markdown(
     """
     <style>
+    .stApp, .stApp p, .stApp span, .stApp label, .stApp div,
+    .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp li, .stApp small {
+        color: #f8fafc !important;
+    }
+
     .stApp {
-        background-color: #0b0f17;
-        color: #f1f5f9;
+        background: linear-gradient(180deg, #070b14 0%, #0d1526 100%) !important;
     }
+
     section[data-testid="stSidebar"] {
-        background-color: #111827;
-        border-right: 1px solid #1f2937;
+        background-color: #111827 !important;
+        border-right: 1px solid #283548 !important;
     }
+
+    div[data-testid="stMetric"] {
+        background-color: #131c2e !important;
+        border: 1px solid #2c3e5e !important;
+        border-radius: 12px !important;
+        padding: 14px 16px !important;
+    }
+
+    div[data-testid="stMetricValue"] > div {
+        color: #38bdf8 !important;
+        font-weight: 700 !important;
+    }
+
     .report-card {
-        background-color: #111827;
-        border: 1px solid #263248;
-        border-radius: 12px;
-        padding: 18px;
-        margin-top: 12px;
+        background-color: #131c2e !important;
+        border: 1px solid #334155 !important;
+        border-left: 5px solid #38bdf8 !important;
+        border-radius: 12px !important;
+        padding: 20px !important;
+        margin-top: 12px !important;
+        color: #f8fafc !important;
     }
+
+    .report-card p, .report-card strong, .report-card div {
+        color: #f8fafc !important;
+    }
+
     .badge-high {
-        background-color: #450a0a;
-        color: #fca5a5;
-        border: 1px solid #ef4444;
-        padding: 6px 12px;
+        background-color: #7f1d1d !important;
+        color: #fef2f2 !important;
+        border: 1px solid #f87171 !important;
+        padding: 6px 14px;
         border-radius: 999px;
-        font-weight: 600;
+        font-weight: 700;
         display: inline-block;
     }
+
     .badge-mod {
-        background-color: #451a03;
-        color: #fde68a;
-        border: 1px solid #f59e0b;
-        padding: 6px 12px;
+        background-color: #78350f !important;
+        color: #fffbeb !important;
+        border: 1px solid #fbbf24 !important;
+        padding: 6px 14px;
         border-radius: 999px;
-        font-weight: 600;
+        font-weight: 700;
         display: inline-block;
     }
+
     .badge-low {
-        background-color: #052e16;
-        color: #86efac;
-        border: 1px solid #22c55e;
-        padding: 6px 12px;
+        background-color: #14532d !important;
+        color: #f0fdf4 !important;
+        border: 1px solid #4ade80 !important;
+        padding: 6px 14px;
         border-radius: 999px;
-        font-weight: 600;
+        font-weight: 700;
         display: inline-block;
+    }
+
+    .creator-footer {
+        margin-top: 48px;
+        padding: 18px 20px;
+        text-align: center;
+        background-color: #111827 !important;
+        border: 1px solid #283548 !important;
+        border-radius: 12px;
+        color: #f8fafc !important;
+        font-size: 16px;
+        font-weight: 600;
+        letter-spacing: 0.4px;
     }
     </style>
     """,
@@ -101,12 +141,12 @@ def classify_level(parasitemia_pct: float, infected: bool) -> tuple[str, str]:
     """Return (level_label, clinical_note) based on parasitemia percentage."""
     if not infected or parasitemia_pct < 0.5:
         return (
-            "None / Negative (0.0% - <0.5%)",
+            "None / Negative (0.0% - less than 0.5%)",
             "No significant parasite load detected in examined smear.",
         )
     elif parasitemia_pct < 2.0:
         return (
-            "Low Level (<2%)",
+            "Low Level (less than 2%)",
             "Early or low-density parasitemia. Standard antimalarial therapy and close follow-up advised.",
         )
     elif parasitemia_pct <= 5.0:
@@ -116,7 +156,7 @@ def classify_level(parasitemia_pct: float, infected: bool) -> tuple[str, str]:
         )
     else:
         return (
-            "High / Severe Level (>5%)",
+            "High / Severe Level (greater than 5%)",
             "High parasite density! Urgent hospital/physician care and immediate clinical confirmation required.",
         )
 
@@ -130,7 +170,6 @@ def analyze_cell_image(img: Image.Image, total_rbcs: int):
     non_bg = (r < 0.92) | (g < 0.92) | (b < 0.92)
     cell_pixels = max(int(np.sum(non_bg)), 1)
 
-    # Detect Giemsa-stained parasite/chromatin spots inside cell
     parasite_mask = non_bg & (g < 0.44) & (b > g * 1.12) & (r < 0.68)
     parasite_pixels = int(np.sum(parasite_mask))
     stain_ratio = float(parasite_pixels) / cell_pixels
@@ -150,7 +189,6 @@ def analyze_cell_image(img: Image.Image, total_rbcs: int):
         else:
             confidence = round(min(98.5, 81.0 + (0.035 - stain_ratio) * 280), 2)
 
-    # Estimate parasitemia percentage (%)
     if infected:
         raw_pct = min(14.5, max(0.6, stain_ratio * 48.0))
         parasitemia_pct = round(raw_pct, 2)
@@ -170,7 +208,6 @@ def analyze_cell_image(img: Image.Image, total_rbcs: int):
     }
 
 
-# Input Tabs: Upload Image vs Live Camera Capture
 tab_upload, tab_live_cam = st.tabs(["📁 Upload Blood Smear Image", "📷 Live Camera Capture"])
 
 active_image = None
@@ -199,7 +236,6 @@ if active_image is not None:
     display_name = patient_name.strip() if patient_name.strip() else "Anonymous Patient"
     status_text = "MALARIA DETECTED (Parasitized)" if res["infected"] else "NO MALARIA DETECTED (Uninfected)"
 
-    # Top Live Status Banner & Metrics
     st.markdown(f"**Live Scan Timestamp:** `{timestamp_str}` | **Source:** `{source_label}`")
 
     m1, m2, m3, m4 = st.columns(4)
@@ -217,4 +253,78 @@ if active_image is not None:
         st.image(active_image, caption=f"{display_name} — {timestamp_str}", use_container_width=True)
 
     with col_rep:
-        st
+        st.subheader("📋 Diagnostic & Severity Report")
+
+        if res["parasitemia_pct"] > 5.0 and res["infected"]:
+            badge_html = '<span class="badge-high">SEVERITY: HIGH / SEVERE (greater than 5%)</span>'
+            st.error(f"⚠️ **{status_text}** — Confidence: **{res['confidence']}%**")
+        elif res["parasitemia_pct"] >= 2.0 and res["infected"]:
+            badge_html = '<span class="badge-mod">SEVERITY: MODERATE (2% - 5%)</span>'
+            st.warning(f"⚠️ **{status_text}** — Confidence: **{res['confidence']}%**")
+        elif res["infected"]:
+            badge_html = '<span class="badge-mod">SEVERITY: LOW (less than 2%)</span>'
+            st.warning(f"⚠️ **{status_text}** — Confidence: **{res['confidence']}%**")
+        else:
+            badge_html = '<span class="badge-low">SEVERITY: NEGATIVE / UNINFECTED</span>'
+            st.success(f"✅ **{status_text}** — Confidence: **{res['confidence']}%**")
+
+        st.markdown(
+            f"""
+            <div class="report-card">
+                <div style="margin-bottom:12px;">{badge_html}</div>
+                <p><strong>Sample / Patient ID:</strong> {patient_id}</p>
+                <p><strong>Patient Name:</strong> {display_name} ({patient_age} yrs, {patient_gender})</p>
+                <p><strong>Scan Time:</strong> {timestamp_str}</p>
+                <p><strong>Detection Result:</strong> {status_text}</p>
+                <p><strong>Confidence Score:</strong> {res['confidence']}%</p>
+                <p><strong>Parasitemia Level:</strong> {res['level_label']} ({res['parasitemia_pct']}%)</p>
+                <p><strong>Clinical Guidance:</strong> {res['level_note']}</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        report_text = (
+            f"==================================================\n"
+            f"LIVE AI MALARIA SCREENING & PARASITEMIA REPORT\n"
+            f"==================================================\n"
+            f"Timestamp         : {timestamp_str}\n"
+            f"Patient / SampleID: {display_name} ({patient_id})\n"
+            f"Age / Gender      : {patient_age} / {patient_gender}\n"
+            f"Image Source      : {source_label}\n"
+            f"--------------------------------------------------\n"
+            f"Detection Status  : {status_text}\n"
+            f"Confidence Score  : {res['confidence']}%\n"
+            f"Parasitemia Level : {res['level_label']} ({res['parasitemia_pct']}%)\n"
+            f"Est. Infected RBCs: {res['estimated_infected_rbcs']} of {stained_rbc_count}\n"
+            f"--------------------------------------------------\n"
+            f"Clinical Note     : {res['level_note']}\n"
+            f"Created by        : Haseeb Bhutta\n"
+        )
+
+        st.download_button(
+            label="📥 Download Full Diagnostic Report (.txt)",
+            data=report_text,
+            file_name=f"{patient_id}_{display_name.replace(' ', '_')}_malaria_report.txt",
+            mime="text/plain",
+        )
+else:
+    st.info(
+        "Upar **Upload Blood Smear Image** tab se image upload karein ya **Live Camera Capture** tab se live photo lein."
+    )
+
+# End Footer Attribution
+st.markdown(
+    """
+    <div class="creator-footer">
+        Created by Haseeb Bhutta
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+# Live auto-refresh loop when toggled on
+if live_mode:
+    st.toast(f"Live mode active — refreshing in {refresh_sec}s...")
+    time.sleep(refresh_sec)
+    st.rerun()
