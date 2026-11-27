@@ -68,7 +68,8 @@ st.markdown("""
 
 
 def create_simple_pdf(title, patient_name, patient_gender, lines):
-    """Pure Python PDF generator (no external library needed)."""
+    """Pure Python PDF generator (safe against copy-paste line breaks)."""
+    nl = chr(10)
     p_name = patient_name.strip() if patient_name and patient_name.strip() else "Not Specified"
     p_gender = patient_gender if patient_gender else "Not Specified"
 
@@ -105,30 +106,36 @@ def create_simple_pdf(title, patient_name, patient_gender, lines):
             content_ops.append("T*")
             content_ops.append("(" + safe_line + ") Tj")
     content_ops.append("ET")
-    stream_data = "\n".join(content_ops).encode("ascii")
+    stream_data = nl.join(content_ops).encode("ascii")
 
-    objects = [
-        b"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n",
-        b"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n",
-        (
-            b"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 842] "
-            b"/Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>\nendobj\n"
-        ),
-        b"4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n",
-        b"5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>\nendobj\n",
-        (
-            f"6 0 obj\n<< /Length {len(stream_data)} >>\nstream\n".encode("ascii")
-            + stream_data
-            + b"\nendstream\nendobj\n"
-        ),
-    ]
+    obj1 = ("1 0 obj" + nl + "<< /Type /Catalog /Pages 2 0 R >>" + nl + "endobj" + nl).encode("ascii")
+    obj2 = ("2 0 obj" + nl + "<< /Type /Pages /Kids [3 0 R] /Count 1 >>" + nl + "endobj" + nl).encode("ascii")
+    obj3 = (
+        "3 0 obj" + nl
+        + "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 842] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>"
+        + nl + "endobj" + nl
+    ).encode("ascii")
+    obj4 = ("4 0 obj" + nl + "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>" + nl + "endobj" + nl).encode("ascii")
+    obj5 = ("5 0 obj" + nl + "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>" + nl + "endobj" + nl).encode("ascii")
+    obj6 = (
+        ("6 0 obj" + nl + "<< /Length " + str(len(stream_data)) + " >>" + nl + "stream" + nl).encode("ascii")
+        + stream_data
+        + (nl + "endstream" + nl + "endobj" + nl).encode("ascii")
+    )
 
-    pdf_bytes = bytearray(b"%PDF-1.4\n")
+    objects = [obj1, obj2, obj3, obj4, obj5, obj6]
+    pdf_bytes = bytearray(("%PDF-1.4" + nl).encode("ascii"))
     offsets = [0]
     for obj in objects:
         offsets.append(len(pdf_bytes))
         pdf_bytes.extend(obj)
 
     xref_pos = len(pdf_bytes)
-    pdf_bytes.extend(f"xref\n0 {len(objects) + 1}\n".encode("ascii"))
-    pdf_bytes.extend(b"0000000000 65535 f \n
+    pdf_bytes.extend(("xref" + nl + "0 " + str(len(objects) + 1) + nl).encode("ascii"))
+    pdf_bytes.extend(("0000000000 65535 f " + nl).encode("ascii"))
+    for off in offsets[1:]:
+        pdf_bytes.extend((f"{off:010d} 00000 n " + nl).encode("ascii"))
+
+    trailer = (
+        "trailer" + nl
+        + "<< /Size " + str(len(objects) + 1) + " /
